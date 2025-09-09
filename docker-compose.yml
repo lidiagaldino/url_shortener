@@ -1,0 +1,24 @@
+services:
+  app:
+    build: .
+    container_name: url-shortener-app
+    ports:
+      - "8080:8080"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+      - MONGO_DB=url_shortener
+      - SERVER_ADDR=:8080
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:6
+    container_name: url-shortener-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
