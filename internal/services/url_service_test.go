@@ -11,11 +11,11 @@ import (
 // --- Mocks ---
 
 type mockRepo struct {
-	saveFunc     func(url entity.URL) error
+	saveFunc     func(url *entity.URL) error
 	findByIDFunc func(id string) (*entity.URL, error)
 }
 
-func (m *mockRepo) Save(url entity.URL) error {
+func (m *mockRepo) Save(url *entity.URL) error {
 	return m.saveFunc(url)
 }
 
@@ -35,7 +35,7 @@ func (m *mockIDGen) Generate() (string, error) {
 
 func TestShorten_Success(t *testing.T) {
 	mockRepo := &mockRepo{
-		saveFunc: func(url entity.URL) error { return nil },
+		saveFunc: func(url *entity.URL) error { return nil },
 	}
 	mockIDGen := &mockIDGen{
 		generateFunc: func() (string, error) { return "abc123", nil },
@@ -75,7 +75,7 @@ func TestShorten_ErrorOnIDGen(t *testing.T) {
 
 func TestShorten_ErrorOnSave(t *testing.T) {
 	mockRepo := &mockRepo{
-		saveFunc: func(url entity.URL) error { return errors.New("failed to save") },
+		saveFunc: func(url *entity.URL) error { return errors.New("failed to save") },
 	}
 	mockIDGen := &mockIDGen{
 		generateFunc: func() (string, error) { return "abc123", nil },

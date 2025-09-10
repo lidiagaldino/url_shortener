@@ -1,9 +1,10 @@
-package handlers
+package handler
 
 import (
 	"encoding/json"
 	"net/http"
 	"url-shortener/internal/services"
+	"url-shortener/internal/services/dto"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -17,9 +18,7 @@ func NewURLHandler(service *services.URLService) *URLHandler {
 }
 
 func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		URL string `json:"url"`
-	}
+	var req dto.URL
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.URL == "" {
 		http.Error(w, "URL inválida", http.StatusBadRequest)
 		return

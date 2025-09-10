@@ -1,5 +1,6 @@
-POST http://localhost:8080/shorten
+POST http://localhost:8080/urls/shorten
 Content-Type: 'application/json'
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc2MzE5NzMsInVzZXJfaWQiOiI2OGMxYzY3ZGJiNzAwNjQ0ODJiMzFhMTEifQ.h7akxaFwWaLdgrsPYJ8h0NzkMcKVajbNjircPyvJIoU
 
 {
   "url": "https://google.com"
@@ -7,4 +8,4 @@ Content-Type: 'application/json'
 
 ###
 
-GET http://localhost:8080/ccsEkurNg
+GET http://localhost:8080/urls/P3J5kCrNg

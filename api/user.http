@@ -1,0 +1,19 @@
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "name": "Lídia",
+  "password": "123",
+  "email": "lidia@gmail.com"
+}
+
+###
+
+POST http://localhost:8080/users/signin
+Content-Type: application/json
+
+{
+  "password": "123",
+  "email": "lidia@gmail.com"
+}
+

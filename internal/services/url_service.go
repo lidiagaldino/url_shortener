@@ -21,6 +21,7 @@ func NewURLService(repo repository.URLRepository, idGen pkg.IDGenerator) *URLSer
 
 func (s *URLService) Shorten(originalURL string) (*entity.URL, error) {
 	id, err := s.idGenerator.Generate()
+
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +32,7 @@ func (s *URLService) Shorten(originalURL string) (*entity.URL, error) {
 		CreatedAt:   time.Now(),
 	}
 
-	if err := s.repo.Save(url); err != nil {
+	if err := s.repo.Save(&url); err != nil {
 		return nil, err
 	}
 
