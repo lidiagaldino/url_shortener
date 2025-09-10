@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"url-shortener/internal/interface/middleware"
 	"url-shortener/internal/services"
 	"url-shortener/internal/services/dto"
 
@@ -18,13 +19,19 @@ func NewURLHandler(service *services.URLService) *URLHandler {
 }
 
 func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var req dto.URL
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.URL == "" {
 		http.Error(w, "URL inválida", http.StatusBadRequest)
 		return
 	}
 
-	url, err := h.service.Shorten(req.URL)
+	url, err := h.service.Shorten(req.URL, userID)
 	if err != nil {
 		http.Error(w, "Erro ao encurtar", http.StatusInternalServerError)
 		return

@@ -19,7 +19,7 @@ func NewURLService(repo repository.URLRepository, idGen pkg.IDGenerator) *URLSer
 	}
 }
 
-func (s *URLService) Shorten(originalURL string) (*entity.URL, error) {
+func (s *URLService) Shorten(originalURL, ownerID string) (*entity.URL, error) {
 	id, err := s.idGenerator.Generate()
 
 	if err != nil {
@@ -29,6 +29,7 @@ func (s *URLService) Shorten(originalURL string) (*entity.URL, error) {
 	url := entity.URL{
 		ID:          id,
 		OriginalURL: originalURL,
+		OwnerID:     ownerID,
 		CreatedAt:   time.Now(),
 	}
 

@@ -43,7 +43,7 @@ func TestShorten_Success(t *testing.T) {
 
 	service := NewURLService(mockRepo, mockIDGen)
 
-	url, err := service.Shorten("https://example.com")
+	url, err := service.Shorten("https://example.com", "123")
 	if err != nil {
 		t.Fatalf("expected success, but it failed: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestShorten_ErrorOnIDGen(t *testing.T) {
 
 	service := NewURLService(mockRepo, mockIDGen)
 
-	_, err := service.Shorten("https://example.com")
+	_, err := service.Shorten("https://example.com", "123")
 	if err == nil {
 		t.Fatal("expected error, but was nil")
 	}
@@ -83,7 +83,7 @@ func TestShorten_ErrorOnSave(t *testing.T) {
 
 	service := NewURLService(mockRepo, mockIDGen)
 
-	_, err := service.Shorten("https://example.com")
+	_, err := service.Shorten("https://example.com", "123")
 	if err == nil {
 		t.Fatal("expected error, but was nil")
 	}

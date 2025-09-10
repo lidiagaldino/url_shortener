@@ -37,6 +37,7 @@ func fromModelUrl(url *entity.URL) *model.URL {
 	return &model.URL{
 		ID:          url.ID,
 		OriginalURL: url.OriginalURL,
+		OwnerID:     url.OwnerID,
 		CreatedAt:   time.Now(),
 	}
 }
@@ -45,6 +46,7 @@ func toEntityUrl(url *model.URL) *entity.URL {
 	return &entity.URL{
 		ID:          url.ID,
 		OriginalURL: url.OriginalURL,
+		OwnerID:     url.OwnerID,
 		CreatedAt:   url.CreatedAt,
 	}
 }
