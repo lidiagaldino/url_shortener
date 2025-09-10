@@ -3,6 +3,7 @@ package exceptions
 import "errors"
 
 var (
-	ErrEmailAlreadyExists = errors.New("email já cadastrado")
-	ErrUserNotFound       = errors.New("usuário não encontrado")
+	ErrEmailAlreadyExists = errors.New("email already exists")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrInvalidCredentials = errors.New("invalid credentials")
 )

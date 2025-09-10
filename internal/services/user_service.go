@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"url-shortener/internal/domain/entity"
 	"url-shortener/internal/domain/exceptions"
 	"url-shortener/internal/domain/repository"
@@ -59,16 +58,16 @@ func (s *UserService) Save(user *dto.UserInput) (*dto.UserOutput, error) {
 func (s *UserService) LoginUser(input *dto.LoginUserInput) (*dto.LoginUserOutput, error) {
 	user, err := s.repo.FindByEmail(input.Email)
 	if err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, exceptions.ErrInvalidCredentials
 	}
 
 	if !s.hasher.CheckPasswordHash(input.Password, user.HashedPassword) {
-		return nil, errors.New("invalid credentials")
+		return nil, exceptions.ErrInvalidCredentials
 	}
 
 	t, err := s.token.GenerateToken(user.ID)
 	if err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, exceptions.ErrInvalidCredentials
 	}
 
 	result := dto.LoginUserOutput{

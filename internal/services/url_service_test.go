@@ -6,121 +6,116 @@ import (
 	"time"
 
 	"url-shortener/internal/domain/entity"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-// --- Mocks ---
+//
+// Mocks
+//
 
-type mockRepo struct {
-	saveFunc     func(url *entity.URL) error
-	findByIDFunc func(id string) (*entity.URL, error)
+type MockURLRepo struct {
+	mock.Mock
 }
 
-func (m *mockRepo) Save(url *entity.URL) error {
-	return m.saveFunc(url)
+func (m *MockURLRepo) Save(url *entity.URL) error {
+	args := m.Called(url)
+	return args.Error(0)
 }
 
-func (m *mockRepo) FindByID(id string) (*entity.URL, error) {
-	return m.findByIDFunc(id)
+func (m *MockURLRepo) FindByID(id string) (*entity.URL, error) {
+	args := m.Called(id)
+	if args.Get(0) != nil {
+		return args.Get(0).(*entity.URL), args.Error(1)
+	}
+	return nil, args.Error(1)
 }
 
-type mockIDGen struct {
-	generateFunc func() (string, error)
+type MockIDGenerator struct {
+	mock.Mock
 }
 
-func (m *mockIDGen) Generate() (string, error) {
-	return m.generateFunc()
+func (m *MockIDGenerator) Generate() (string, error) {
+	args := m.Called()
+	return args.String(0), args.Error(1)
 }
 
-// --- Testes ---
+//
+// Tests
+//
 
 func TestShorten_Success(t *testing.T) {
-	mockRepo := &mockRepo{
-		saveFunc: func(url *entity.URL) error { return nil },
-	}
-	mockIDGen := &mockIDGen{
-		generateFunc: func() (string, error) { return "abc123", nil },
-	}
+	repo := new(MockURLRepo)
+	idGen := new(MockIDGenerator)
+	service := NewURLService(repo, idGen)
 
-	service := NewURLService(mockRepo, mockIDGen)
+	urlInput := "https://example.com"
+	OwnerID := "123"
+	shortID := "abc123"
+	now := time.Now()
 
-	url, err := service.Shorten("https://example.com", "123")
-	if err != nil {
-		t.Fatalf("expected success, but it failed: %v", err)
-	}
+	idGen.On("Generate").Return(shortID, nil)
+	repo.On("Save", mock.MatchedBy(func(u *entity.URL) bool {
+		return u.OriginalURL == urlInput && u.ID == shortID && u.OwnerID == OwnerID
+	})).Return(nil)
 
-	if url.ID != "abc123" {
-		t.Errorf("expcted ID to be 'abc123', but was '%s'", url.ID)
-	}
-	if url.OriginalURL != "https://example.com" {
-		t.Errorf("expected origial URL to be 'https://example.com', but was '%s'", url.OriginalURL)
-	}
-	if time.Since(url.CreatedAt) > time.Second {
-		t.Errorf("createdAt is invalid")
-	}
+	url, err := service.Shorten(urlInput, OwnerID)
+	assert.NoError(t, err)
+	assert.NotNil(t, url)
+	assert.Equal(t, shortID, url.ID)
+	assert.Equal(t, urlInput, url.OriginalURL)
+	assert.WithinDuration(t, now, url.CreatedAt, time.Second)
 }
 
 func TestShorten_ErrorOnIDGen(t *testing.T) {
-	mockRepo := &mockRepo{}
-	mockIDGen := &mockIDGen{
-		generateFunc: func() (string, error) { return "", errors.New("generate id failed") },
-	}
+	repo := new(MockURLRepo)
+	idGen := new(MockIDGenerator)
+	service := NewURLService(repo, idGen)
 
-	service := NewURLService(mockRepo, mockIDGen)
+	idGen.On("Generate").Return("", errors.New("generate id failed"))
 
 	_, err := service.Shorten("https://example.com", "123")
-	if err == nil {
-		t.Fatal("expected error, but was nil")
-	}
+	assert.Error(t, err)
 }
 
 func TestShorten_ErrorOnSave(t *testing.T) {
-	mockRepo := &mockRepo{
-		saveFunc: func(url *entity.URL) error { return errors.New("failed to save") },
-	}
-	mockIDGen := &mockIDGen{
-		generateFunc: func() (string, error) { return "abc123", nil },
-	}
+	repo := new(MockURLRepo)
+	idGen := new(MockIDGenerator)
+	service := NewURLService(repo, idGen)
 
-	service := NewURLService(mockRepo, mockIDGen)
+	shortID := "abc123"
+	idGen.On("Generate").Return(shortID, nil)
+	repo.On("Save", mock.AnythingOfType("*entity.URL")).Return(errors.New("failed to save"))
 
 	_, err := service.Shorten("https://example.com", "123")
-	if err == nil {
-		t.Fatal("expected error, but was nil")
-	}
+	assert.Error(t, err)
 }
 
 func TestResolve_Success(t *testing.T) {
-	mockRepo := &mockRepo{
-		findByIDFunc: func(id string) (*entity.URL, error) {
-			return &entity.URL{ID: id, OriginalURL: "https://example.com"}, nil
-		},
-	}
-	mockIDGen := &mockIDGen{}
+	repo := new(MockURLRepo)
+	idGen := new(MockIDGenerator)
+	service := NewURLService(repo, idGen)
 
-	service := NewURLService(mockRepo, mockIDGen)
+	urlID := "abc123"
+	originalURL := "https://example.com"
+	repo.On("FindByID", urlID).Return(&entity.URL{ID: urlID, OriginalURL: originalURL}, nil)
 
-	url, err := service.Resolve("abc123")
-	if err != nil {
-		t.Fatalf("expected success, but it failed: %v", err)
-	}
-
-	if url.ID != "abc123" {
-		t.Errorf("expected ID to be 'abc123', but was '%s'", url.ID)
-	}
+	url, err := service.Resolve(urlID)
+	assert.NoError(t, err)
+	assert.NotNil(t, url)
+	assert.Equal(t, urlID, url.ID)
+	assert.Equal(t, originalURL, url.OriginalURL)
 }
 
 func TestResolve_NotFound(t *testing.T) {
-	mockRepo := &mockRepo{
-		findByIDFunc: func(id string) (*entity.URL, error) {
-			return nil, errors.New("not found")
-		},
-	}
-	mockIDGen := &mockIDGen{}
+	repo := new(MockURLRepo)
+	idGen := new(MockIDGenerator)
+	service := NewURLService(repo, idGen)
 
-	service := NewURLService(mockRepo, mockIDGen)
+	urlID := "abc123"
+	repo.On("FindByID", urlID).Return(nil, errors.New("not found"))
 
-	_, err := service.Resolve("abc123")
-	if err == nil {
-		t.Fatal("expected not found, but was nil")
-	}
+	_, err := service.Resolve(urlID)
+	assert.Error(t, err)
 }

@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"url-shortener/internal/bootstrap"
 	"url-shortener/internal/config"
+	"url-shortener/internal/interface/bootstrap"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
