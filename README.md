@@ -6,6 +6,10 @@ A simple URL shortener built in Go with DDD + Clean Architecture and MongoDB.
 - Shorten URLs
 - Redirect to the original URL
 
+### Phase 2 Features
+- Register and Login
+- Protected routes
+
 ---
 
 ## Technologies
@@ -19,15 +23,20 @@ A simple URL shortener built in Go with DDD + Clean Architecture and MongoDB.
 
 ## Project Structure
 
-- `cmd/server` - Application entry point  
-- `internal/services` - Use cases / services  
-- `internal/config` - Configuration (env vars)  
-- `internal/domain` - Entities and interfaces  
-- `internal/infra` - Implementations (MongoDB)  
-- `internal/handlers` - HTTP handlers / controllers  
-- `pkg` - Utilities (e.g., ID generation)  
-- `docker-compose.yml` - MongoDB + App setup  
-- `Dockerfile` - Multi-stage build  
+```bash
+.
+├── cmd/server           # Ponto de entrada da aplicação  
+├── internal  
+│   ├── services         # Services and DTOs 
+│   ├── config           # Env vars 
+│   ├── domain           # Entities, interfaces and custom exceptions  
+│   ├── infrastructure   # MongoDB and JWT Implementations 
+│   └── interfaces       # Handlers HTTP and Middlewares
+├── pkg                  # ID generator and hasher
+├── docker-compose.yml   # MongoDB + APP
+├── Dockerfile           # Multistage Build
+└── README.md  
+```
 
 ---
 
@@ -48,9 +57,58 @@ MongoDB at: `mongodb://mongo:27017`
 
 ## Endpoints
 
+### Create User
+
+**POST /users**
+
+Request Body:
+
+```
+{
+  "name": "John Doe",
+  "password": "123",
+  "email": "john@example.com"
+}
+```
+
+Response:
+
+```
+{
+  "id": "abc123",
+  "name": "John Doe",
+  "email": "john@example.com"
+}
+```
+
+---
+
+### Sign In User
+
+**POST /users/signin**
+
+Request Body:
+
+```
+{
+  "password": "123",
+  "email": "john@example.com"
+}
+```
+
+Response:
+
+```
+{
+  "token": "myjwttoken"
+}
+```
+
+---
+
 ### Shorten URL
 
-**POST /shorten**
+**POST /shorten (protected)**
 
 Request Body:
 
@@ -66,7 +124,7 @@ Response:
 {
   "id": "abc123",
   "original_url": "https://mysite.com/very-long-article",
-  "short_url": "http://localhost:8080/abc123"
+  "owner_id": "123"
 }
 ```
 
@@ -96,9 +154,8 @@ go test ./...
 
 ---
 
-## Next Steps (Phase 2)
+## Next Steps (Phase 3)
 
-- User accounts (login/register)  
 - Custom domains per user  
 - Click tracking and statistics  
 - Simple web interface to manage URLs  
