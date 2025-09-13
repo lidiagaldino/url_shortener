@@ -24,6 +24,11 @@ func (h *UserHandler) Save(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := validate.Struct(&req); err != nil {
+		http.Error(w, "invalid input: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	user, err := h.service.Save(&req)
 	if err != nil {
 		http.Error(w, "Erro ao criar usuário", http.StatusInternalServerError)
@@ -37,6 +42,11 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req dto.LoginUserInput
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Dados inválidos", http.StatusBadRequest)
+		return
+	}
+
+	if err := validate.Struct(&req); err != nil {
+		http.Error(w, "invalid input ", http.StatusBadRequest)
 		return
 	}
 

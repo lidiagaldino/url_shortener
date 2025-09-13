@@ -9,6 +9,8 @@ import (
 	"url-shortener/internal/services"
 	"url-shortener/internal/services/dto"
 
+	"github.com/go-playground/validator/v10"
+
 	"github.com/go-chi/chi/v5"
 )
 
@@ -20,6 +22,8 @@ func NewURLHandler(s *services.URLService) *URLHandler {
 	return &URLHandler{service: s}
 }
 
+var validate = validator.New()
+
 func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 	if userID == "" {
@@ -29,6 +33,11 @@ func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
 
 	var req dto.URL
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.URL == "" {
+		http.Error(w, "URL inválida", http.StatusBadRequest)
+		return
+	}
+
+	if err := validate.Struct(&req); err != nil {
 		http.Error(w, "URL inválida", http.StatusBadRequest)
 		return
 	}

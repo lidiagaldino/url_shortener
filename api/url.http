@@ -3,7 +3,7 @@ Content-Type: 'application/json'
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OGM0YmIyMDljOWMzNzFmZDA1MjAzYjQiLCJleHAiOjE3NTc4MTUzNzIsImlhdCI6MTc1NzcyODk3Mn0.WxGxtZVxpRVeUNW3GpkaPufnYi0Coq-ovOgWIrcnO8c
 
 {
-  "url": "tcp://google.com"
+  "url": "https://google.com"
 }
 
 ###
