@@ -8,6 +8,7 @@ import (
 	"url-shortener/internal/domain/entity"
 	"url-shortener/internal/domain/exceptions"
 	"url-shortener/internal/domain/repository"
+	"url-shortener/internal/services/dto"
 	"url-shortener/pkg"
 )
 
@@ -84,7 +85,7 @@ func (s *URLService) Shorten(originalURL, ownerID string) (*entity.URL, error) {
 func (s *URLService) Resolve(id, ip, userAgent, referer string) (*entity.URL, error) {
 	url, err := s.repo.FindByID(id)
 	if err != nil {
-		return nil, err
+		return nil, exceptions.ErrURLNotFound
 	}
 
 	if err := s.repo.IncrementClick(id); err != nil {
@@ -103,4 +104,45 @@ func (s *URLService) Resolve(id, ip, userAgent, referer string) (*entity.URL, er
 	}
 
 	return url, nil
+}
+
+func (s *URLService) Stats(id, ownerID string) (*dto.URLStats, error) {
+	url, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, exceptions.ErrURLNotFound
+	}
+
+	if url.OwnerID != ownerID {
+		return nil, exceptions.ErrUnauthorizedURLStatistics
+	}
+
+	stats, err := s.statsRepo.FindByURLID(id)
+	if err != nil {
+		return nil, exceptions.ErrURLNotFound
+	}
+
+	var statsData []dto.Data
+
+	for _, sEnt := range stats {
+		statsData = append(statsData, dto.Data{
+			ID:        sEnt.ID,
+			URLID:     sEnt.URLID,
+			ClickedAt: sEnt.ClickedAt,
+			IP:        sEnt.IP,
+			UserAgent: sEnt.UserAgent,
+			Referer:   sEnt.Referer,
+		})
+	}
+
+	resume := dto.Resume{
+		Clicks:    url.ClickCount,
+		LastClick: url.LastClick,
+	}
+
+	result := &dto.URLStats{
+		StatsResume: resume,
+		StatsData:   statsData,
+	}
+
+	return result, nil
 }

@@ -71,3 +71,29 @@ func (h *URLHandler) Redirect(w http.ResponseWriter, r *http.Request) {
 
 	http.Redirect(w, r, url.OriginalURL, http.StatusMovedPermanently)
 }
+
+func (h *URLHandler) Stats(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	id := chi.URLParam(r, "id")
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	stats, err := h.service.Stats(id, userID)
+	if err != nil {
+		if errors.Is(err, exceptions.ErrURLNotFound) {
+			http.Error(w, "URL não encontrada", http.StatusNoContent)
+			return
+		}
+		if errors.Is(err, exceptions.ErrUnauthorizedURLStatistics) {
+			http.Error(w, "Sem permissão para visualizar", http.StatusForbidden)
+			return
+		}
+		http.Error(w, "Erro ao buscar", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(stats)
+}

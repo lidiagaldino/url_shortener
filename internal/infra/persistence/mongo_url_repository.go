@@ -59,5 +59,7 @@ func toEntityUrl(url *model.URL) *entity.URL {
 		OriginalURL: url.OriginalURL,
 		OwnerID:     url.OwnerID,
 		CreatedAt:   url.CreatedAt,
+		ClickCount:  url.ClickCount,
+		LastClick:   url.LastClick,
 	}
 }

@@ -44,6 +44,7 @@ func NewRouter(db *mongo.Database, cfg *config.Config) http.Handler {
 	r.Group(func(protected chi.Router) {
 		protected.Use(middleware.AuthMiddleware(tokenGen))
 		protected.Post("/urls/shorten", urlHandler.Shorten)
+		protected.Get("/urls/{id}/stats", urlHandler.Stats)
 	})
 
 	return r

@@ -20,6 +20,41 @@ func NewMongoURLStatsRepository(db *mongo.Database) repository.URLStatsRepositor
 	}
 }
 
+func (r *MongoURLStatsRepository) FindByURLID(urlID string) ([]entity.URLStat, error) {
+	ctx := context.TODO()
+
+	filter := map[string]interface{}{"url_id": urlID}
+
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var stats []entity.URLStat
+	for cursor.Next(ctx) {
+		var m model.URLStat
+		if err := cursor.Decode(&m); err != nil {
+			return nil, err
+		}
+
+		stats = append(stats, entity.URLStat{
+			ID:        m.ID.Hex(),
+			URLID:     m.URLID,
+			ClickedAt: m.ClickedAt,
+			IP:        m.IP,
+			UserAgent: m.UserAgent,
+			Referer:   m.Referer,
+		})
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return stats, nil
+}
+
 func (r *MongoURLStatsRepository) Save(stat *entity.URLStat) error {
 	urlStat := fromModelUrlStats(stat)
 

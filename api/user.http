@@ -2,9 +2,9 @@ POST http://localhost:8080/users
 Content-Type: application/json
 
 {
-  "name": "Lídia",
-  "password": "123",
-  "email": "lidia@gmail.com"
+  "name": "Maria",
+  "password": "12345678",
+  "email": "maria@gmail.com"
 }
 
 ###
@@ -13,7 +13,7 @@ POST http://localhost:8080/users/signin
 Content-Type: application/json
 
 {
-  "password": "123",
-  "email": "lidia@gmail.com"
+  "password": "12345678",
+  "email": "maria@gmail.com"
 }
 

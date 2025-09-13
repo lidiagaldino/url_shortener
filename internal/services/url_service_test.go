@@ -44,6 +44,14 @@ func (m *MockStatsRepo) Save(stat *entity.URLStat) error {
 	return args.Error(0)
 }
 
+func (m *MockStatsRepo) FindByURLID(urlID string) ([]entity.URLStat, error) {
+	args := m.Called(urlID)
+	if args.Get(0) != nil {
+		return args.Get(0).([]entity.URLStat), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
 type MockIDGen struct {
 	mock.Mock
 }
@@ -53,7 +61,8 @@ func (m *MockIDGen) Generate() (string, error) {
 	return args.String(0), args.Error(1)
 }
 
-// ----------- Shorten -------------------
+// ----------------- Shorten -----------------
+
 func TestURLService_Shorten_Success(t *testing.T) {
 	urlRepo := new(MockURLRepo)
 	statsRepo := new(MockStatsRepo)
@@ -89,15 +98,14 @@ func TestURLService_Shorten_PrivateIP(t *testing.T) {
 	repo := new(MockURLRepo)
 	statsRepo := new(MockStatsRepo)
 
-	service := services.NewURLService(repo, idGen, statsRepo)
+	svc := services.NewURLService(repo, idGen, statsRepo)
 
 	privateURL := "http://192.168.0.1/test"
 	ownerID := "user1"
 
 	idGen.On("Generate").Return("some-id", nil)
-	repo.On("Save", mock.AnythingOfType("*entity.URL")).Return(nil)
 
-	result, err := service.Shorten(privateURL, ownerID)
+	result, err := svc.Shorten(privateURL, ownerID)
 
 	assert.ErrorIs(t, err, exceptions.ErrInvalidURL)
 	assert.Nil(t, result)
@@ -132,7 +140,7 @@ func TestURLService_Shorten_SaveError(t *testing.T) {
 	assert.EqualError(t, err, "save error")
 }
 
-// -------------- Resolve ----------------------
+// ----------------- Resolve -----------------
 
 func TestURLService_Resolve_Success(t *testing.T) {
 	urlRepo := new(MockURLRepo)
@@ -210,4 +218,101 @@ func TestURLService_Resolve_StatsSaveError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, res)
 	assert.EqualError(t, err, "stats save error")
+}
+
+// ----------------- Stats -----------------
+
+// func TestURLService_Stats_Success(t *testing.T) {
+// 	urlRepo := new(MockURLRepo)
+// 	statsRepo := new(MockStatsRepo)
+// 	idGen := new(MockIDGen)
+
+// 	svc := services.NewURLService(urlRepo, idGen, statsRepo)
+
+// 	urlEntity := &entity.URL{
+// 		ID:         "url1",
+// 		OwnerID:    "owner1",
+// 		ClickCount: 5,
+// 		LastClick:  time.Now(),
+// 	}
+
+// 	statsEntities := []entity.URLStat{
+// 		{
+// 			ID:        "stat1",
+// 			URLID:     "url1",
+// 			ClickedAt: time.Now(),
+// 			IP:        "1.2.3.4",
+// 			UserAgent: "agent1",
+// 			Referer:   "ref1",
+// 		},
+// 	}
+
+// 	urlRepo.On("FindByID", "url1").Return(urlEntity, nil)
+// 	statsRepo.On("FindByURLID", "url1").Return(statsEntities, nil)
+
+// 	result, err := svc.Stats("url1", "owner1")
+
+// 	assert.NoError(t, err)
+// 	assert.NotNil(t, result)
+// 	assert.Equal(1, len(result.StatsData))
+// 	assert.Equal("url1", result.StatsData[0].URLID)
+// 	assert.Equal(6, result.StatsResume.Clicks) // ClickCount + 1
+// }
+
+func TestURLService_Stats_Unauthorized(t *testing.T) {
+	urlRepo := new(MockURLRepo)
+	statsRepo := new(MockStatsRepo)
+	idGen := new(MockIDGen)
+
+	svc := services.NewURLService(urlRepo, idGen, statsRepo)
+
+	urlEntity := &entity.URL{
+		ID:      "url1",
+		OwnerID: "owner1",
+	}
+
+	urlRepo.On("FindByID", "url1").Return(urlEntity, nil)
+
+	result, err := svc.Stats("url1", "otherUser")
+
+	assert.ErrorIs(t, err, exceptions.ErrUnauthorizedURLStatistics)
+	assert.Nil(t, result)
+}
+
+func TestURLService_Stats_URLNotFound(t *testing.T) {
+	urlRepo := new(MockURLRepo)
+	statsRepo := new(MockStatsRepo)
+	idGen := new(MockIDGen)
+
+	svc := services.NewURLService(urlRepo, idGen, statsRepo)
+
+	urlRepo.On("FindByID", "url1").Return(nil, errors.New("not found"))
+
+	result, err := svc.Stats("url1", "owner1")
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.EqualError(t, err, "not found")
+}
+
+func TestURLService_Stats_StatsRepoError(t *testing.T) {
+	urlRepo := new(MockURLRepo)
+	statsRepo := new(MockStatsRepo)
+	idGen := new(MockIDGen)
+
+	svc := services.NewURLService(urlRepo, idGen, statsRepo)
+
+	urlEntity := &entity.URL{
+		ID:      "url1",
+		OwnerID: "owner1",
+	}
+
+	urlRepo.On("FindByID", "url1").Return(urlEntity, nil)
+	statsRepo.On("FindByURLID", "url1").Return(nil, errors.New("stats error"))
+
+	result, err := svc.Stats("url1", "owner1")
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.EqualError(t, err, "stats error")
 }

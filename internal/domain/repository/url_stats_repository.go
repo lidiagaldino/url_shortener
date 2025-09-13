@@ -6,4 +6,5 @@ import (
 
 type URLStatsRepository interface {
 	Save(stat *entity.URLStat) error
+	FindByURLID(id string) ([]entity.URLStat, error)
 }
