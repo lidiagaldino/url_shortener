@@ -1,9 +1,9 @@
 POST http://localhost:8080/urls/shorten
 Content-Type: 'application/json'
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc4MDk4MjcsInVzZXJfaWQiOiI2OGM0YmIyMDljOWMzNzFmZDA1MjAzYjQifQ.-9xSwW-LATJLGv69OMkMGB1ytbs417pFjNUpNRkxb70
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OGM0YmIyMDljOWMzNzFmZDA1MjAzYjQiLCJleHAiOjE3NTc4MTUzNzIsImlhdCI6MTc1NzcyODk3Mn0.WxGxtZVxpRVeUNW3GpkaPufnYi0Coq-ovOgWIrcnO8c
 
 {
-  "url": "https://google.com"
+  "url": "tcp://google.com"
 }
 
 ###

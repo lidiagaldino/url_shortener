@@ -1,26 +1,24 @@
-package services
+package services_test
 
 import (
 	"errors"
 	"testing"
-	"time"
-
 	"url-shortener/internal/domain/entity"
+	"url-shortener/internal/domain/exceptions"
+	"url-shortener/internal/services"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-//
-// Mocks
-//
+// --- Mocks ---
 
 type MockURLRepo struct {
 	mock.Mock
 }
 
-func (m *MockURLRepo) Save(url *entity.URL) error {
-	args := m.Called(url)
+func (m *MockURLRepo) Save(u *entity.URL) error {
+	args := m.Called(u)
 	return args.Error(0)
 }
 
@@ -46,130 +44,170 @@ func (m *MockStatsRepo) Save(stat *entity.URLStat) error {
 	return args.Error(0)
 }
 
-type MockIDGenerator struct {
+type MockIDGen struct {
 	mock.Mock
 }
 
-func (m *MockIDGenerator) Generate() (string, error) {
+func (m *MockIDGen) Generate() (string, error) {
 	args := m.Called()
 	return args.String(0), args.Error(1)
 }
 
-//
-// Tests
-//
-
-func TestShorten_Success(t *testing.T) {
-	repo := new(MockURLRepo)
+// ----------- Shorten -------------------
+func TestURLService_Shorten_Success(t *testing.T) {
+	urlRepo := new(MockURLRepo)
 	statsRepo := new(MockStatsRepo)
-	idGen := new(MockIDGenerator)
-	service := NewURLService(repo, idGen, statsRepo)
+	idGen := new(MockIDGen)
 
-	urlInput := "https://example.com"
-	ownerID := "123"
-	shortID := "abc123"
-	now := time.Now()
+	svc := services.NewURLService(urlRepo, idGen, statsRepo)
 
-	idGen.On("Generate").Return(shortID, nil)
-	repo.On("Save", mock.MatchedBy(func(u *entity.URL) bool {
-		return u.OriginalURL == urlInput && u.ID == shortID && u.OwnerID == ownerID
-	})).Return(nil)
+	idGen.On("Generate").Return("abc123", nil)
+	urlRepo.On("Save", mock.AnythingOfType("*entity.URL")).Return(nil)
 
-	url, err := service.Shorten(urlInput, ownerID)
+	urlEntity, err := svc.Shorten("https://example.com", "owner1")
+
 	assert.NoError(t, err)
-	assert.NotNil(t, url)
-	assert.Equal(t, shortID, url.ID)
-	assert.Equal(t, urlInput, url.OriginalURL)
-	assert.WithinDuration(t, now, url.CreatedAt, time.Second)
+	assert.NotNil(t, urlEntity)
+	assert.Equal(t, "abc123", urlEntity.ID)
+	assert.Equal(t, "owner1", urlEntity.OwnerID)
+	assert.Equal(t, "https://example.com", urlEntity.OriginalURL)
 }
 
-func TestShorten_ErrorOnIDGen(t *testing.T) {
+func TestURLService_Shorten_InvalidURL(t *testing.T) {
+	urlRepo := new(MockURLRepo)
+	statsRepo := new(MockStatsRepo)
+	idGen := new(MockIDGen)
+
+	svc := services.NewURLService(urlRepo, idGen, statsRepo)
+
+	_, err := svc.Shorten("invalid-url", "owner1")
+	assert.ErrorIs(t, err, exceptions.ErrInvalidURL)
+}
+
+func TestURLService_Shorten_PrivateIP(t *testing.T) {
+	idGen := new(MockIDGen)
 	repo := new(MockURLRepo)
 	statsRepo := new(MockStatsRepo)
-	idGen := new(MockIDGenerator)
-	service := NewURLService(repo, idGen, statsRepo)
 
-	idGen.On("Generate").Return("", errors.New("generate id failed"))
+	service := services.NewURLService(repo, idGen, statsRepo)
 
-	_, err := service.Shorten("https://example.com", "123")
+	privateURL := "http://192.168.0.1/test"
+	ownerID := "user1"
+
+	idGen.On("Generate").Return("some-id", nil)
+	repo.On("Save", mock.AnythingOfType("*entity.URL")).Return(nil)
+
+	result, err := service.Shorten(privateURL, ownerID)
+
+	assert.ErrorIs(t, err, exceptions.ErrInvalidURL)
+	assert.Nil(t, result)
+}
+
+func TestURLService_Shorten_GenerateError(t *testing.T) {
+	urlRepo := new(MockURLRepo)
+	statsRepo := new(MockStatsRepo)
+	idGen := new(MockIDGen)
+
+	svc := services.NewURLService(urlRepo, idGen, statsRepo)
+
+	idGen.On("Generate").Return("", errors.New("generate error"))
+
+	_, err := svc.Shorten("https://example.com", "owner1")
 	assert.Error(t, err)
+	assert.EqualError(t, err, "generate error")
 }
 
-func TestShorten_ErrorOnSave(t *testing.T) {
-	repo := new(MockURLRepo)
+func TestURLService_Shorten_SaveError(t *testing.T) {
+	urlRepo := new(MockURLRepo)
 	statsRepo := new(MockStatsRepo)
-	idGen := new(MockIDGenerator)
-	service := NewURLService(repo, idGen, statsRepo)
+	idGen := new(MockIDGen)
 
-	shortID := "abc123"
-	idGen.On("Generate").Return(shortID, nil)
-	repo.On("Save", mock.AnythingOfType("*entity.URL")).Return(errors.New("failed to save"))
+	svc := services.NewURLService(urlRepo, idGen, statsRepo)
 
-	_, err := service.Shorten("https://example.com", "123")
+	idGen.On("Generate").Return("abc123", nil)
+	urlRepo.On("Save", mock.AnythingOfType("*entity.URL")).Return(errors.New("save error"))
+
+	_, err := svc.Shorten("https://example.com", "owner1")
 	assert.Error(t, err)
+	assert.EqualError(t, err, "save error")
 }
 
-func TestResolve_Success(t *testing.T) {
-	repo := new(MockURLRepo)
+// -------------- Resolve ----------------------
+
+func TestURLService_Resolve_Success(t *testing.T) {
+	urlRepo := new(MockURLRepo)
 	statsRepo := new(MockStatsRepo)
-	idGen := new(MockIDGenerator)
-	service := NewURLService(repo, idGen, statsRepo)
+	idGen := new(MockIDGen)
 
-	urlID := "abc123"
-	originalURL := "https://example.com"
-	ip := "127.0.0.1"
-	userAgent := "Go-http-client/1.1"
-	referer := "https://google.com"
+	svc := services.NewURLService(urlRepo, idGen, statsRepo)
 
-	repo.On("FindByID", urlID).Return(&entity.URL{ID: urlID, OriginalURL: originalURL}, nil)
-	repo.On("IncrementClick", urlID).Return(nil)
+	urlEntity := &entity.URL{
+		ID:          "abc123",
+		OriginalURL: "https://example.com",
+	}
+
+	urlRepo.On("FindByID", "abc123").Return(urlEntity, nil)
+	urlRepo.On("IncrementClick", "abc123").Return(nil)
 	statsRepo.On("Save", mock.AnythingOfType("*entity.URLStat")).Return(nil)
 
-	url, err := service.Resolve(urlID, ip, userAgent, referer)
+	res, err := svc.Resolve("abc123", "1.2.3.4", "user-agent", "referer")
+
 	assert.NoError(t, err)
-	assert.NotNil(t, url)
-	assert.Equal(t, urlID, url.ID)
-	assert.Equal(t, originalURL, url.OriginalURL)
+	assert.NotNil(t, res)
+	assert.Equal(t, "https://example.com", res.OriginalURL)
 }
 
-func TestResolve_NotFound(t *testing.T) {
-	repo := new(MockURLRepo)
+func TestURLService_Resolve_NotFound(t *testing.T) {
+	urlRepo := new(MockURLRepo)
 	statsRepo := new(MockStatsRepo)
-	idGen := new(MockIDGenerator)
-	service := NewURLService(repo, idGen, statsRepo)
+	idGen := new(MockIDGen)
 
-	urlID := "abc123"
-	repo.On("FindByID", urlID).Return(nil, errors.New("not found"))
+	svc := services.NewURLService(urlRepo, idGen, statsRepo)
 
-	_, err := service.Resolve(urlID, "127.0.0.1", "UA", "ref")
+	urlRepo.On("FindByID", "abc123").Return(nil, errors.New("not found"))
+
+	res, err := svc.Resolve("abc123", "1.2.3.4", "user-agent", "referer")
+
 	assert.Error(t, err)
+	assert.Nil(t, res)
+	assert.EqualError(t, err, "not found")
 }
 
-func TestResolve_ErrorOnIncrementClick(t *testing.T) {
-	repo := new(MockURLRepo)
+func TestURLService_Resolve_IncrementClickError(t *testing.T) {
+	urlRepo := new(MockURLRepo)
 	statsRepo := new(MockStatsRepo)
-	idGen := new(MockIDGenerator)
-	service := NewURLService(repo, idGen, statsRepo)
+	idGen := new(MockIDGen)
 
-	urlID := "abc123"
-	repo.On("FindByID", urlID).Return(&entity.URL{ID: urlID, OriginalURL: "https://example.com"}, nil)
-	repo.On("IncrementClick", urlID).Return(errors.New("failed to increment"))
+	svc := services.NewURLService(urlRepo, idGen, statsRepo)
 
-	_, err := service.Resolve(urlID, "127.0.0.1", "UA", "ref")
+	urlEntity := &entity.URL{ID: "abc123", OriginalURL: "https://example.com"}
+
+	urlRepo.On("FindByID", "abc123").Return(urlEntity, nil)
+	urlRepo.On("IncrementClick", "abc123").Return(errors.New("increment error"))
+
+	res, err := svc.Resolve("abc123", "1.2.3.4", "user-agent", "referer")
+
 	assert.Error(t, err)
+	assert.Nil(t, res)
+	assert.EqualError(t, err, "increment error")
 }
 
-func TestResolve_ErrorOnSaveStats(t *testing.T) {
-	repo := new(MockURLRepo)
+func TestURLService_Resolve_StatsSaveError(t *testing.T) {
+	urlRepo := new(MockURLRepo)
 	statsRepo := new(MockStatsRepo)
-	idGen := new(MockIDGenerator)
-	service := NewURLService(repo, idGen, statsRepo)
+	idGen := new(MockIDGen)
 
-	urlID := "abc123"
-	repo.On("FindByID", urlID).Return(&entity.URL{ID: urlID, OriginalURL: "https://example.com"}, nil)
-	repo.On("IncrementClick", urlID).Return(nil)
-	statsRepo.On("Save", mock.AnythingOfType("*entity.URLStat")).Return(errors.New("failed to save stats"))
+	svc := services.NewURLService(urlRepo, idGen, statsRepo)
 
-	_, err := service.Resolve(urlID, "127.0.0.1", "UA", "ref")
+	urlEntity := &entity.URL{ID: "abc123", OriginalURL: "https://example.com"}
+
+	urlRepo.On("FindByID", "abc123").Return(urlEntity, nil)
+	urlRepo.On("IncrementClick", "abc123").Return(nil)
+	statsRepo.On("Save", mock.AnythingOfType("*entity.URLStat")).Return(errors.New("stats save error"))
+
+	res, err := svc.Resolve("abc123", "1.2.3.4", "user-agent", "referer")
+
 	assert.Error(t, err)
+	assert.Nil(t, res)
+	assert.EqualError(t, err, "stats save error")
 }

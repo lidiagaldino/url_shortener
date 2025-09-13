@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"url-shortener/internal/domain/exceptions"
 	"url-shortener/internal/interface/middleware"
 	"url-shortener/internal/services"
 	"url-shortener/internal/services/dto"
@@ -14,8 +16,8 @@ type URLHandler struct {
 	service *services.URLService
 }
 
-func NewURLHandler(service *services.URLService) *URLHandler {
-	return &URLHandler{service: service}
+func NewURLHandler(s *services.URLService) *URLHandler {
+	return &URLHandler{service: s}
 }
 
 func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
@@ -33,11 +35,16 @@ func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
 
 	url, err := h.service.Shorten(req.URL, userID)
 	if err != nil {
+		if errors.Is(err, exceptions.ErrInvalidURL) {
+			http.Error(w, "URL inválida", http.StatusBadRequest)
+			return
+		}
 		http.Error(w, "Erro ao encurtar", http.StatusInternalServerError)
 		return
 	}
 
-	json.NewEncoder(w).Encode(url)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(url)
 }
 
 func (h *URLHandler) Redirect(w http.ResponseWriter, r *http.Request) {

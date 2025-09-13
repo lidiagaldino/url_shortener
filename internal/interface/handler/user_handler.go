@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"url-shortener/internal/domain/exceptions"
 	"url-shortener/internal/services"
 	"url-shortener/internal/services/dto"
 )
@@ -40,6 +42,10 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.service.LoginUser(&req)
 	if err != nil {
+		if errors.Is(err, exceptions.ErrInvalidCredentials) {
+			http.Error(w, "Credenciais invalidas", http.StatusForbidden)
+			return
+		}
 		http.Error(w, "Erro ao fazer login", http.StatusInternalServerError)
 		return
 	}

@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"url-shortener/internal/domain/security"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type contextKey string
@@ -24,21 +22,10 @@ func AuthMiddleware(jwtService security.TokenService) func(http.Handler) http.Ha
 			}
 
 			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-			token, err := jwtService.ValidateToken(tokenString)
-			if err != nil || !token.Valid {
+
+			userID, err := jwtService.ValidateToken(tokenString)
+			if err != nil {
 				http.Error(w, "invalid or expired token", http.StatusUnauthorized)
-				return
-			}
-
-			claims, ok := token.Claims.(jwt.MapClaims)
-			if !ok || !token.Valid {
-				http.Error(w, "invalid token claims", http.StatusUnauthorized)
-				return
-			}
-
-			userID, ok := claims["user_id"].(string)
-			if !ok {
-				http.Error(w, "invalid token payload", http.StatusUnauthorized)
 				return
 			}
 

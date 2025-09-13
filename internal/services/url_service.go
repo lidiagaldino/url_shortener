@@ -1,8 +1,12 @@
 package services
 
 import (
+	"net"
+	"net/url"
+	"strings"
 	"time"
 	"url-shortener/internal/domain/entity"
+	"url-shortener/internal/domain/exceptions"
 	"url-shortener/internal/domain/repository"
 	"url-shortener/pkg"
 )
@@ -21,25 +25,60 @@ func NewURLService(repo repository.URLRepository, idGen pkg.IDGenerator, statsRe
 	}
 }
 
-func (s *URLService) Shorten(originalURL, ownerID string) (*entity.URL, error) {
-	id, err := s.idGenerator.Generate()
+func (s *URLService) isPrivateIP(ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate()
+}
 
+func (s *URLService) validateDestination(raw string) error {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return exceptions.ErrInvalidURL
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return exceptions.ErrInvalidURL
+	}
+	host := u.Hostname()
+	if host == "" {
+		return exceptions.ErrInvalidURL
+	}
+	lower := strings.ToLower(host)
+	if lower == "localhost" {
+		return exceptions.ErrInvalidURL
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if s.isPrivateIP(ip) {
+			return exceptions.ErrInvalidURL
+		}
+	}
+
+	return nil
+}
+
+func (s *URLService) Shorten(originalURL, ownerID string) (*entity.URL, error) {
+	if err := s.validateDestination(originalURL); err != nil {
+		return nil, exceptions.ErrInvalidURL
+	}
+
+	id, err := s.idGenerator.Generate()
 	if err != nil {
 		return nil, err
 	}
 
-	url := entity.URL{
+	urlEntity := entity.URL{
 		ID:          id,
 		OriginalURL: originalURL,
 		OwnerID:     ownerID,
 		CreatedAt:   time.Now(),
 	}
 
-	if err := s.repo.Save(&url); err != nil {
+	if err := s.repo.Save(&urlEntity); err != nil {
 		return nil, err
 	}
 
-	return &url, nil
+	return &urlEntity, nil
 }
 
 func (s *URLService) Resolve(id, ip, userAgent, referer string) (*entity.URL, error) {

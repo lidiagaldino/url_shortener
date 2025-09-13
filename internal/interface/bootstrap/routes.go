@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"net/http"
+	"time"
 
 	"url-shortener/internal/config"
 	"url-shortener/internal/infra/persistence"
@@ -30,7 +31,10 @@ func NewRouter(db *mongo.Database, cfg *config.Config) http.Handler {
 	urlHandler := handler.NewURLHandler(urlService)
 	userHandler := handler.NewUserHandler(userService)
 
+	rl := middleware.NewIPRateLimiter(1, 3, 3*time.Minute, 1*time.Minute)
+
 	r := chi.NewRouter()
+	r.Use(rl.Middleware())
 
 	r.Post("/users", userHandler.Save)
 	r.Post("/users/signin", userHandler.Login)

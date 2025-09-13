@@ -10,12 +10,11 @@ import (
 	"url-shortener/internal/services"
 	"url-shortener/internal/services/dto"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// Mocks
+// --- Mocks ---
 
 type MockUserRepo struct {
 	mock.Mock
@@ -68,15 +67,12 @@ func (m *MockTokenService) GenerateToken(userID string) (string, error) {
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockTokenService) ValidateToken(token string) (*jwt.Token, error) {
+func (m *MockTokenService) ValidateToken(token string) (string, error) {
 	args := m.Called(token)
-	if args.Get(0) != nil {
-		return args.Get(0).(*jwt.Token), args.Error(1)
-	}
-	return nil, args.Error(1)
+	return args.String(0), args.Error(1)
 }
 
-// Tests
+// --- Tests ---
 
 func TestUserService_Save_Success(t *testing.T) {
 	repo := new(MockUserRepo)
@@ -123,6 +119,45 @@ func TestUserService_Save_EmailExists(t *testing.T) {
 
 	assert.ErrorIs(t, err, exceptions.ErrEmailAlreadyExists)
 	assert.Nil(t, result)
+}
+
+func TestUserService_Save_HashError(t *testing.T) {
+	repo := new(MockUserRepo)
+	hasher := new(MockHasher)
+	token := new(MockTokenService)
+
+	svc := services.NewUserService(repo, hasher, token)
+
+	input := &dto.UserInput{Name: "John", Email: "john@example.com", Password: "123"}
+	repo.On("FindByEmail", input.Email).Return(nil, nil)
+	hasher.On("HashPassword", input.Password).Return("", errors.New("hash error"))
+
+	result, err := svc.Save(input)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.EqualError(t, err, "hash error")
+}
+
+func TestUserService_Save_SaveError(t *testing.T) {
+	repo := new(MockUserRepo)
+	hasher := new(MockHasher)
+	token := new(MockTokenService)
+
+	svc := services.NewUserService(repo, hasher, token)
+
+	input := &dto.UserInput{Name: "John", Email: "john@example.com", Password: "123"}
+	hashed := "hashed123"
+
+	repo.On("FindByEmail", input.Email).Return(nil, nil)
+	hasher.On("HashPassword", input.Password).Return(hashed, nil)
+	repo.On("Save", mock.AnythingOfType("*entity.User")).Return(nil, errors.New("save error"))
+
+	result, err := svc.Save(input)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.EqualError(t, err, "save error")
 }
 
 func TestUserService_LoginUser_Success(t *testing.T) {
@@ -173,8 +208,27 @@ func TestUserService_LoginUser_UserNotFound(t *testing.T) {
 	svc := services.NewUserService(repo, hasher, token)
 
 	input := &dto.LoginUserInput{Email: "notfound@example.com", Password: "123"}
-
 	repo.On("FindByEmail", input.Email).Return(nil, errors.New("not found"))
+
+	result, err := svc.LoginUser(input)
+
+	assert.ErrorIs(t, err, exceptions.ErrInvalidCredentials)
+	assert.Nil(t, result)
+}
+
+func TestUserService_LoginUser_GenerateTokenError(t *testing.T) {
+	repo := new(MockUserRepo)
+	hasher := new(MockHasher)
+	token := new(MockTokenService)
+
+	svc := services.NewUserService(repo, hasher, token)
+
+	input := &dto.LoginUserInput{Email: "john@example.com", Password: "123"}
+	user := &entity.User{ID: "1", Email: input.Email, HashedPassword: "hashed123"}
+
+	repo.On("FindByEmail", input.Email).Return(user, nil)
+	hasher.On("CheckPasswordHash", input.Password, user.HashedPassword).Return(true)
+	token.On("GenerateToken", user.ID).Return("", errors.New("token error"))
 
 	result, err := svc.LoginUser(input)
 
