@@ -18,12 +18,13 @@ import (
 func NewRouter(db *mongo.Database, cfg *config.Config) http.Handler {
 	urlRepo := persistence.NewMongoURLRepository(db)
 	userRepo := persistence.NewMongoUserRepository(db)
+	statsRepo := persistence.NewMongoURLStatsRepository(db)
 
 	idGen := &pkg.ShortIDGenerator{}
 	hasher := &pkg.PassowrdHasher{}
 	tokenGen := security.NewJWTService(cfg.SecretKey)
 
-	urlService := services.NewURLService(urlRepo, idGen)
+	urlService := services.NewURLService(urlRepo, idGen, statsRepo)
 	userService := services.NewUserService(userRepo, hasher, tokenGen)
 
 	urlHandler := handler.NewURLHandler(urlService)

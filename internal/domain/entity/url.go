@@ -7,4 +7,6 @@ type URL struct {
 	OriginalURL string
 	OwnerID     string
 	CreatedAt   time.Time
+	ClickCount  int
+	LastClick   time.Time
 }

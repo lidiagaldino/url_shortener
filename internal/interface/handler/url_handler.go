@@ -43,7 +43,11 @@ func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
 func (h *URLHandler) Redirect(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	url, err := h.service.Resolve(id)
+	ip := r.RemoteAddr
+	userAgent := r.UserAgent()
+	referer := r.Referer()
+
+	url, err := h.service.Resolve(id, ip, userAgent, referer)
 	if err != nil {
 		http.NotFound(w, r)
 		return

@@ -9,12 +9,14 @@ import (
 
 type URLService struct {
 	repo        repository.URLRepository
+	statsRepo   repository.URLStatsRepository
 	idGenerator pkg.IDGenerator
 }
 
-func NewURLService(repo repository.URLRepository, idGen pkg.IDGenerator) *URLService {
+func NewURLService(repo repository.URLRepository, idGen pkg.IDGenerator, statsRepo repository.URLStatsRepository) *URLService {
 	return &URLService{
 		repo:        repo,
+		statsRepo:   statsRepo,
 		idGenerator: idGen,
 	}
 }
@@ -40,6 +42,26 @@ func (s *URLService) Shorten(originalURL, ownerID string) (*entity.URL, error) {
 	return &url, nil
 }
 
-func (s *URLService) Resolve(id string) (*entity.URL, error) {
-	return s.repo.FindByID(id)
+func (s *URLService) Resolve(id, ip, userAgent, referer string) (*entity.URL, error) {
+	url, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.IncrementClick(id); err != nil {
+		return nil, err
+	}
+
+	stat := &entity.URLStat{
+		URLID:     id,
+		ClickedAt: time.Now(),
+		IP:        ip,
+		UserAgent: userAgent,
+		Referer:   referer,
+	}
+	if err := s.statsRepo.Save(stat); err != nil {
+		return nil, err
+	}
+
+	return url, nil
 }

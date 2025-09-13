@@ -1,6 +1,6 @@
 POST http://localhost:8080/urls/shorten
 Content-Type: 'application/json'
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc2MzE5NzMsInVzZXJfaWQiOiI2OGMxYzY3ZGJiNzAwNjQ0ODJiMzFhMTEifQ.h7akxaFwWaLdgrsPYJ8h0NzkMcKVajbNjircPyvJIoU
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc4MDk4MjcsInVzZXJfaWQiOiI2OGM0YmIyMDljOWMzNzFmZDA1MjAzYjQifQ.-9xSwW-LATJLGv69OMkMGB1ytbs417pFjNUpNRkxb70
 
 {
   "url": "https://google.com"
@@ -8,4 +8,4 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc2MzE5N
 
 ###
 
-GET http://localhost:8080/urls/r75cyCrHR
+GET http://localhost:8080/urls/xMrqeiCNR

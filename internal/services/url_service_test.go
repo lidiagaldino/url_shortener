@@ -32,6 +32,20 @@ func (m *MockURLRepo) FindByID(id string) (*entity.URL, error) {
 	return nil, args.Error(1)
 }
 
+func (m *MockURLRepo) IncrementClick(id string) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+type MockStatsRepo struct {
+	mock.Mock
+}
+
+func (m *MockStatsRepo) Save(stat *entity.URLStat) error {
+	args := m.Called(stat)
+	return args.Error(0)
+}
+
 type MockIDGenerator struct {
 	mock.Mock
 }
@@ -47,20 +61,21 @@ func (m *MockIDGenerator) Generate() (string, error) {
 
 func TestShorten_Success(t *testing.T) {
 	repo := new(MockURLRepo)
+	statsRepo := new(MockStatsRepo)
 	idGen := new(MockIDGenerator)
-	service := NewURLService(repo, idGen)
+	service := NewURLService(repo, idGen, statsRepo)
 
 	urlInput := "https://example.com"
-	OwnerID := "123"
+	ownerID := "123"
 	shortID := "abc123"
 	now := time.Now()
 
 	idGen.On("Generate").Return(shortID, nil)
 	repo.On("Save", mock.MatchedBy(func(u *entity.URL) bool {
-		return u.OriginalURL == urlInput && u.ID == shortID && u.OwnerID == OwnerID
+		return u.OriginalURL == urlInput && u.ID == shortID && u.OwnerID == ownerID
 	})).Return(nil)
 
-	url, err := service.Shorten(urlInput, OwnerID)
+	url, err := service.Shorten(urlInput, ownerID)
 	assert.NoError(t, err)
 	assert.NotNil(t, url)
 	assert.Equal(t, shortID, url.ID)
@@ -70,8 +85,9 @@ func TestShorten_Success(t *testing.T) {
 
 func TestShorten_ErrorOnIDGen(t *testing.T) {
 	repo := new(MockURLRepo)
+	statsRepo := new(MockStatsRepo)
 	idGen := new(MockIDGenerator)
-	service := NewURLService(repo, idGen)
+	service := NewURLService(repo, idGen, statsRepo)
 
 	idGen.On("Generate").Return("", errors.New("generate id failed"))
 
@@ -81,8 +97,9 @@ func TestShorten_ErrorOnIDGen(t *testing.T) {
 
 func TestShorten_ErrorOnSave(t *testing.T) {
 	repo := new(MockURLRepo)
+	statsRepo := new(MockStatsRepo)
 	idGen := new(MockIDGenerator)
-	service := NewURLService(repo, idGen)
+	service := NewURLService(repo, idGen, statsRepo)
 
 	shortID := "abc123"
 	idGen.On("Generate").Return(shortID, nil)
@@ -94,14 +111,21 @@ func TestShorten_ErrorOnSave(t *testing.T) {
 
 func TestResolve_Success(t *testing.T) {
 	repo := new(MockURLRepo)
+	statsRepo := new(MockStatsRepo)
 	idGen := new(MockIDGenerator)
-	service := NewURLService(repo, idGen)
+	service := NewURLService(repo, idGen, statsRepo)
 
 	urlID := "abc123"
 	originalURL := "https://example.com"
-	repo.On("FindByID", urlID).Return(&entity.URL{ID: urlID, OriginalURL: originalURL}, nil)
+	ip := "127.0.0.1"
+	userAgent := "Go-http-client/1.1"
+	referer := "https://google.com"
 
-	url, err := service.Resolve(urlID)
+	repo.On("FindByID", urlID).Return(&entity.URL{ID: urlID, OriginalURL: originalURL}, nil)
+	repo.On("IncrementClick", urlID).Return(nil)
+	statsRepo.On("Save", mock.AnythingOfType("*entity.URLStat")).Return(nil)
+
+	url, err := service.Resolve(urlID, ip, userAgent, referer)
 	assert.NoError(t, err)
 	assert.NotNil(t, url)
 	assert.Equal(t, urlID, url.ID)
@@ -110,12 +134,42 @@ func TestResolve_Success(t *testing.T) {
 
 func TestResolve_NotFound(t *testing.T) {
 	repo := new(MockURLRepo)
+	statsRepo := new(MockStatsRepo)
 	idGen := new(MockIDGenerator)
-	service := NewURLService(repo, idGen)
+	service := NewURLService(repo, idGen, statsRepo)
 
 	urlID := "abc123"
 	repo.On("FindByID", urlID).Return(nil, errors.New("not found"))
 
-	_, err := service.Resolve(urlID)
+	_, err := service.Resolve(urlID, "127.0.0.1", "UA", "ref")
+	assert.Error(t, err)
+}
+
+func TestResolve_ErrorOnIncrementClick(t *testing.T) {
+	repo := new(MockURLRepo)
+	statsRepo := new(MockStatsRepo)
+	idGen := new(MockIDGenerator)
+	service := NewURLService(repo, idGen, statsRepo)
+
+	urlID := "abc123"
+	repo.On("FindByID", urlID).Return(&entity.URL{ID: urlID, OriginalURL: "https://example.com"}, nil)
+	repo.On("IncrementClick", urlID).Return(errors.New("failed to increment"))
+
+	_, err := service.Resolve(urlID, "127.0.0.1", "UA", "ref")
+	assert.Error(t, err)
+}
+
+func TestResolve_ErrorOnSaveStats(t *testing.T) {
+	repo := new(MockURLRepo)
+	statsRepo := new(MockStatsRepo)
+	idGen := new(MockIDGenerator)
+	service := NewURLService(repo, idGen, statsRepo)
+
+	urlID := "abc123"
+	repo.On("FindByID", urlID).Return(&entity.URL{ID: urlID, OriginalURL: "https://example.com"}, nil)
+	repo.On("IncrementClick", urlID).Return(nil)
+	statsRepo.On("Save", mock.AnythingOfType("*entity.URLStat")).Return(errors.New("failed to save stats"))
+
+	_, err := service.Resolve(urlID, "127.0.0.1", "UA", "ref")
 	assert.Error(t, err)
 }
